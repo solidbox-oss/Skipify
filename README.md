@@ -269,6 +269,16 @@ Skipify is an independent project. It is not affiliated with, endorsed by or con
 Spotify is a trademark of Spotify AB. Blocking ads may be against Spotify's terms of service — use
 Skipify at your own risk. If you enjoy Spotify, consider supporting artists with Spotify Premium.
 
+## Listener-connection reliability
+
+Beyond Hush's original approach, Skipify adds reliability-focused measures for its notification-listener connection. With Skipify enabled and notification access granted, these include:
+
+- Durable retries backed by persisted state and scheduled alarms, re-armed at app startup, after a reboot and after app updates.
+- Connection checks and rebind requests when the app starts or returns to the foreground, with duplicate-request throttling.
+- A manual **Fix** action that opens Android's notification-access settings.
+
+These additions reflect our effort to make the listener connection as reliable as possible.
+
 ## Original source
 
 Skipify is a substantially modified fork of [Hush](https://github.com/coldMEW/Hush) by coldMEW, not a ground-up rewrite. It retains much of Hush's code and core functionality. It has been rebranded as Skipify, with a refreshed interface, colors and icon, and Hush's update-check and self-installer have been removed; Skipify does not check for or install updates itself. Skipify remains licensed under the [GNU General Public License v3.0](LICENSE). Hush is acknowledged here as the upstream source; this is not a source for Skipify downloads or releases.
