@@ -271,7 +271,7 @@ Skipify at your own risk. If you enjoy Spotify, consider supporting artists with
 
 ## Original source
 
-Skipify is derived from [Hush](https://github.com/coldMEW/Hush). This acknowledgement is for attribution only; it is not a source for Skipify downloads or releases.
+Skipify is a substantially modified fork of [Hush](https://github.com/coldMEW/Hush) by coldMEW, not a ground-up rewrite. It retains much of Hush's code and core functionality. It has been rebranded as Skipify, with a refreshed interface, colors and icon, and Hush's update-check and self-installer have been removed; Skipify does not check for or install updates itself. Skipify remains licensed under the [GNU General Public License v3.0](LICENSE). Hush is acknowledged here as the upstream source; this is not a source for Skipify downloads or releases.
 
 ## License
 
