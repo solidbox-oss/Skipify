@@ -197,48 +197,6 @@ Android allows one VPN at a time. Skipify's ad skipping keeps working without it
 **Block ad servers** off, or stop the other VPN.
 </details>
 
-## How it works
-
-**Once: setup.** Skipify pairs with Android's Wireless debugging like a computer would, and starts
-its own small helper with the same rights as `adb shell`. The helper answers only Skipify and can
-do only a fixed list of actions. On a rooted phone Skipify starts the same helper with root instead
-(as the shell user, so with the same rights), and no pairing is needed.
-
-```mermaid
-flowchart LR
-    P["Pair once<br/>six-digit code in<br/>Skipify's notification"] --> K["Skipify keeps its own key<br/>(encrypted, on the phone)"]
-    K --> H["Skipify starts its helper<br/>fixed actions only,<br/>answers only Skipify"]
-```
-
-**Every ad break.** Spotify keeps an ad break only in memory, so a cold restart resumes the queue
-at the next song. Spotify is started again the way a headset play button starts it: no screen
-appears, and a locked phone stays locked.
-
-```mermaid
-flowchart LR
-    A["Spotify<br/>plays an ad"] --> B("Skipify detects it<br/>from the ad ID or flag")
-    B --> C["Helper stops Spotify (20–90 ms),<br/>it restarts in the background"]
-    C --> D["Music resumes,<br/>ad break gone"]
-```
-
-**Looks after itself.** Skipping never stops without you being told.
-
-```mermaid
-flowchart TD
-    X{"Helper running?"} -->|yes| S["Ads are skipped"]
-    X -->|no| R["Skipify starts it again (about 2 s)"]
-    R -->|"can't: Wireless debugging off,<br/>no Wi-Fi, pairing forgotten"| M["Ads are muted, and one<br/>Skipping paused notice says why"]
-    M -->|"tap it, or by itself after a<br/>reboot or when Wi-Fi is back"| R
-```
-
-Spotify is watched the same way after every skip: if it comes back without its playback service
-(no notification), Skipify repairs that, and if it crashes in its first seconds, Skipify starts it again.
-If you closed Spotify yourself, it stays closed.
-
-The tricky parts (Spotify's media-button intent being cancelled by a force-stop, keeping the
-screen state untouched, Android's background-audio rules, the pairing protocol and reboot handling)
-are documented in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
-
 ## Known issues
 
 - Restoring the previous playlist works for playlists and albums, not for an artist's
