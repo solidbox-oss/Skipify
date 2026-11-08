@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Skipify</string>
+    <string name="app_tagline">Your music, uninterrupted</string>
+    <string name="watcher_label">Skipify ad watcher</string>
+    <string name="back">Back</string>
+    <string name="version">Skipify %1$s · for Spotify on this phone</string>
+
+    <!-- Status card -->
+    <string name="status_overline">Live protection</string>
+    <string name="status_off">Skipify is off</string>
+    <string name="status_off_desc">Ads play normally. Turn on to remove them.</string>
+    <string name="status_skip">Skipping ads</string>
+    <string name="status_skip_desc">Ad breaks are removed automatically, whether the phone is in use or locked.</string>
+    <string name="status_mute">Muting ads</string>
+    <string name="status_mute_desc">Music volume is muted while an ad plays.</string>
+    <string name="status_dns_only">DNS filter only</string>
+    <string name="status_dns_only_desc">Audio ads are left alone. Ad servers are still blocked.</string>
+    <string name="status_attention">Needs attention</string>
+    <string name="status_need_listener">Allow notification access so Skipify can tell when an ad starts.</string>
+    <string name="status_listener_reconnecting">Ad detection is reconnecting. Skipify keeps retrying, even after a process restart. If it stays this way, use Fix below to turn notification access off and back on in Android Settings.</string>
+    <string name="status_need_shizuku">Skipping is paused. Until it\'s back, ads are muted.</string>
+    <string name="status_need_dns">The DNS filter isn\'t running. Video ads may appear.</string>
+
+    <string name="power_turn_on">Turn Skipify on</string>
+    <string name="power_turn_off">Turn Skipify off</string>
+
+    <string name="st_detect">Ad detection</string>
+    <string name="st_skip">Ad handling</string>
+    <string name="st_dns">DNS filter</string>
+    <string name="v_active">Active</string>
+    <string name="v_no_access">No access</string>
+    <string name="v_reconnecting">Reconnecting</string>
+    <string name="v_skip">Skip</string>
+    <string name="v_mute">Mute</string>
+    <string name="v_mute_fallback">Mute (skipping not ready)</string>
+    <string name="v_off">Off</string>
+    <string name="v_running">Running</string>
+    <string name="v_stopped">Not running</string>
+
+    <!-- Setup -->
+    <string name="section_setup">Finish setup</string>
+    <string name="setup_spotify">Spotify</string>
+    <string name="setup_spotify_missing">Spotify isn\'t installed on this phone.</string>
+    <string name="setup_listener">Notification access</string>
+    <string name="setup_listener_desc">Lets Skipify see when Spotify starts an ad. Skipify doesn\'t read your notifications.</string>
+    <string name="setup_listener_reconnect">Ad detection disconnected</string>
+    <string name="setup_listener_reconnect_desc">Notification access is allowed, but Android hasn\'t reconnected Skipify. It will keep retrying; tap Fix to switch Skipify notification access off, then back on.</string>
+    <string name="setup_restricted">Switch greyed out?</string>
+    <string name="setup_restricted_desc">Android blocks it for apps installed outside the Play Store. Tap App info, then ⋮ at the top right, then Allow restricted settings. Then tap Allow above again.</string>
+    <string name="action_app_info">App info</string>
+    <string name="opt_car">In the car (Android Auto)</string>
+    <string name="car_skip">Skip</string>
+    <string name="car_mute">Mute</string>
+    <string name="car_off">Do nothing</string>
+    <string name="car_desc_skip">Skip while Android Auto is connected, without switching apps on the phone. Skipify waits until Android Auto is not reading from Spotify, so navigation keeps running. If Android Auto still restarts during a skip, choose Mute.</string>
+    <string name="car_desc_mute">Mute ads while Android Auto is connected.</string>
+    <string name="car_desc_off">Let ads play while Android Auto is connected.</string>
+    <string name="setup_vpn">DNS filter permission</string>
+    <string name="setup_vpn_desc">Filters Spotify\'s traffic only. Other apps aren\'t affected.</string>
+    <string name="setup_shizuku">Shizuku</string>
+    <string name="setup_shizuku_missing">Not installed. Needed to skip ads; without it, ads are muted.</string>
+    <string name="setup_shizuku_stopped">Installed but not running. Open it and tap Start. Needed after every restart.</string>
+    <string name="setup_shizuku_permission">Running. Allow Skipify to use it.</string>
+    <string name="setup_notifications">Notifications</string>
+    <string name="setup_notifications_desc">Shows the status and a Turn off button.</string>
+    <string name="setup_spotify_bg">Spotify in the background</string>
+    <string name="setup_spotify_bg_desc">Spotify isn\'t allowed to run in the background (its battery setting), and Skipify couldn\'t change that by itself. After a skip Spotify then plays without its notification and stops after a few minutes. Tap Fix.</string>
+    <string name="action_fix">Fix</string>
+    <string name="setup_battery">Unrestricted battery</string>
+    <string name="setup_battery_desc">Keeps Skipify working while the phone is locked.</string>
+    <string name="action_allow">Allow</string>
+    <string name="action_open">Open</string>
+    <string name="action_install">Get</string>
+    <string name="action_set_up">Set up</string>
+
+    <!-- Shizuku setup -->
+    <string name="sz_title">Set up Shizuku</string>
+    <string name="sz_intro">Skipify needs Shizuku to restart Spotify when an ad starts. Shizuku is a free, open-source app that lets apps use the system tools Android normally keeps for computers. Setup takes about two minutes, once.</string>
+    <string name="sz_done">Shizuku is ready. Skipify will now skip ads.</string>
+    <string name="sz_step_done">Done</string>
+    <string name="sz_install">1. Install Shizuku</string>
+    <string name="sz_install_desc">From Google Play, or from its official GitHub page.</string>
+    <string name="sz_dev">2. Turn on Developer options</string>
+    <string name="sz_dev_desc">In About phone, tap Build number seven times.</string>
+    <string name="sz_start">3. Start Shizuku</string>
+    <string name="sz_start_desc">In Shizuku, choose Start via Wireless debugging and follow its pairing steps. Pairing is needed only once.</string>
+    <string name="sz_start_desc_old">On this Android version Shizuku is started from a computer with adb. Open Shizuku for the command.</string>
+    <string name="sz_allow">4. Allow Skipify</string>
+    <string name="sz_allow_desc">Skipify asks for this as soon as Shizuku is running.</string>
+    <string name="sz_note">Shizuku stops when the phone restarts. Open it and tap Start again; Skipify reminds you if it has to mute an ad because of that.</string>
+    <string name="sz_guide">Shizuku\'s setup guide</string>
+
+    <!-- Statistics -->
+    <string name="section_stats">Statistics</string>
+    <string name="stat_skipped">Skipped</string>
+    <string name="stat_resume">Avg. resume</string>
+    <string name="stat_muted">Muted</string>
+    <string name="stat_dns">Blocked</string>
+    <string name="stat_reset">Reset</string>
+    <string name="stat_none">–</string>
+
+    <!-- Ad handling -->
+    <string name="section_mode">When an ad plays</string>
+    <string name="mode_skip">Skip</string>
+    <string name="mode_skip_desc">Restarts Spotify in the background to drop the ad break. Music is back in a few seconds.</string>
+    <string name="mode_mute">Mute</string>
+    <string name="mode_mute_desc">Silences the ad and turns the sound back on when it ends. Works without any setup.</string>
+    <string name="mode_off">Do nothing</string>
+    <string name="mode_off_desc">Ads play. The DNS filter still runs if it\'s on.</string>
+
+    <!-- Settings -->
+    <string name="section_settings">Settings</string>
+    <string name="opt_sleep">Sleep timer</string>
+    <string name="sleep_desc_off">Off. Use this instead of Spotify\'s timer, which is lost when an ad is skipped.</string>
+    <string name="sleep_desc_at">Pauses Spotify at %1$s (%2$s left)</string>
+    <string name="sleep_desc_eot">Pauses Spotify at the end of this song</string>
+    <string name="sleep_minutes">%1$d minutes</string>
+    <string name="sleep_hour">1 hour</string>
+    <string name="sleep_eot">End of track</string>
+    <string name="sleep_off">Turn off timer</string>
+    <string name="sleep_custom">Custom…</string>
+    <string name="sleep_custom_title">Pause Spotify in</string>
+    <string name="sleep_custom_hours">h</string>
+    <string name="sleep_custom_minutes">min</string>
+    <string name="sleep_custom_seconds">s</string>
+    <string name="sleep_custom_start">Start</string>
+    <string name="sleep_custom_zero">Choose at least 1 second</string>
+    <string name="sleep_span_s">%1$d s</string>
+    <string name="sleep_span_m">%1$d min</string>
+    <string name="sleep_span_ms">%1$d min %2$d s</string>
+    <string name="sleep_span_h">%1$d h</string>
+    <string name="sleep_span_hm">%1$d h %2$d min</string>
+    <string name="opt_dns">Block ad servers</string>
+    <string name="opt_dns_desc">Stops video ads and ad-related freezes using a local DNS filter for Spotify only.</string>
+    <string name="opt_rules">DNS rules</string>
+    <string name="opt_rules_desc">View or edit the blocked domains.</string>
+    <string name="opt_test">Test ad skip</string>
+    <string name="opt_test_desc">Restarts Spotify now and checks that your music comes back.</string>
+    <string name="state_on">On</string>
+    <string name="state_off">Off</string>
+    <string name="test_started">Restarting Spotify…</string>
+    <string name="test_busy">A restart is already running.</string>
+    <string name="test_needs_shizuku">Set up skipping first.</string>
+
+    <!-- Activity -->
+    <string name="section_activity">Recent activity</string>
+    <string name="activity_clear">Clear</string>
+    <string name="activity_empty">Nothing yet. Ads that Skipify handles appear here.</string>
+
+    <!-- Rules -->
+    <string name="rules_title">DNS rules</string>
+    <string name="rules_help">One rule per line: block, nxdomain, redirect &lt;host&gt;, ip &lt;a.b.c.d&gt; or upstream &lt;a.b.c.d&gt;. A rule also covers subdomains. Lines starting with # are comments.</string>
+    <string name="rules_save">Save</string>
+    <string name="rules_reset">Restore defaults</string>
+    <string name="rules_saved">Rules saved and applied.</string>
+    <string name="rules_invalid">Line %1$s</string>
+    <string name="rules_write_failed">Couldn\'t save the rules file.</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_status">Protection status</string>
+    <string name="notif_channel_alert">Problems</string>
+    <string name="notif_channel_pair">Pairing code</string>
+    <string name="notif_title">Skipify is on</string>
+    <plurals name="notif_text">
+        <item quantity="one">%1$d ad break skipped · %2$d muted</item>
+        <item quantity="other">%1$d ad breaks skipped · %2$d muted</item>
+    </plurals>
+    <string name="notif_stop">Turn off</string>
+    <string name="alert_resume_title">Spotify didn\'t resume</string>
+    <string name="alert_resume_text">The ad was removed, but playback didn\'t restart. Tap to open Spotify.</string>
+    <string name="alert_resume_text_xiaomi">The ad was removed, but playback didn\'t restart. On Xiaomi phones, allow Autostart for Spotify and set its battery saver to No restrictions (Settings, Apps, Spotify). Tap to open Spotify.</string>
+
+    <string name="alert_shizuku_title">Shizuku isn\'t running</string>
+    <string name="alert_setup_text">Skipping needs a one-time setup, about two minutes. Tap to start.</string>
+    <string name="alert_shizuku_text">Shizuku stops when the phone restarts: open it and tap Start. Until then, ads are muted.</string>
+
+    <string name="vpn_denied">The DNS filter needs VPN permission.</string>
+
+    <!-- Skipping with Skipify alone (its own helper) -->
+    <string name="setup_skip">Skipping</string>
+    <string name="setup_skip_new">One-time setup, about two minutes. Until then ads are muted.</string>
+    <string name="setup_no_shizuku">Skip without Shizuku</string>
+    <string name="setup_no_shizuku_desc">Optional: pair Skipify once and Shizuku isn\'t needed anymore, not even after a reboot.</string>
+    <string name="setup_skip_pair">Pair Skipify with Wireless debugging again to keep skipping.</string>
+    <string name="setup_skip_off">Wireless debugging is off. Turn it on and Skipify resumes by itself.</string>
+    <string name="setup_skip_wifi">Paused: skipping needs Wi-Fi to start again (no internet needed). Skipify resumes by itself when Wi-Fi is back.</string>
+    <string name="action_wifi">Wi-Fi</string>
+    <string name="setup_skip_resume">Paused because Wireless debugging is off. Tap Resume.</string>
+    <string name="action_resume">Resume</string>
+    <string name="v_skip_shizuku">Skip (Shizuku)</string>
+
+    <string name="hs_title">Set up skipping</string>
+    <string name="hs_intro">To skip an ad, Skipify restarts Spotify. Android allows that only to tools you approve once through Wireless debugging. Skipify pairs with it by itself: no other app and no computer needed, and nothing leaves this phone.</string>
+    <string name="hs_done">Skipping is ready. Skipify restarts Spotify by itself when an ad starts.</string>
+    <string name="hs_progress">Step %1$d of %2$d</string>
+    <string name="hs_progress_done">All done</string>
+    <string name="hs_dev">Turn on Developer options</string>
+    <string name="hs_dev_desc">In About phone, tap Build number seven times.</string>
+    <string name="hs_pair">Pair Skipify</string>
+    <string name="hs_pair_desc">Tap Pair. In Wireless debugging, turn it on and tap Pair device with pairing code. Stay on that screen: Skipify\'s notification pops up there, type the code into it.</string>
+    <string name="hs_pair_wifi">Connect to Wi-Fi first. Wireless debugging works only on Wi-Fi (no internet needed).</string>
+    <string name="hs_pair_searching">Waiting for the code. In Wireless debugging, tap Pair device with pairing code.</string>
+    <string name="hs_pair_found">Go back to Settings and keep the pairing code open. Type the code into Skipify\'s notification there (pull down from the top if it\'s gone).</string>
+    <string name="hs_pair_found_here">Type the six-digit code here or into Skipify\'s notification.</string>
+    <string name="hs_pair_closed">The pairing code closed when you left Settings. Tap Pair, tap Pair device with pairing code again, and type the new code into Skipify\'s notification without leaving that screen.</string>
+    <string name="hs_pair_action">Pair</string>
+    <string name="hs_pair_send">Pair</string>
+    <string name="hs_maker">One more switch on this phone</string>
+    <string name="hs_maker_xiaomi">In Developer options, also turn on USB debugging (Security settings).</string>
+    <string name="hs_maker_oppo">In Developer options, turn on Disable permission monitoring.</string>
+    <string name="hs_maker_meizu">In Developer options, turn off Flyme payment protection.</string>
+    <string name="hs_maker_huawei">In Developer options, turn on Allow ADB debugging in charge only mode.</string>
+    <string name="hs_ready">Start skipping</string>
+    <string name="hs_ready_desc">Skipify starts its helper and checks that it answers.</string>
+    <string name="hs_ready_desc_off">Turn on Wireless debugging; Skipify then starts by itself.</string>
+    <string name="hs_ready_desc_done">Ready. Nothing else to install.</string>
+    <string name="hs_ready_action">Start</string>
+    <string name="hs_note">Pairing gives Skipify\'s helper only the few actions it needs (restart Spotify, keep it audible, bring back your app). You can remove Skipify under Paired devices in Wireless debugging at any time.</string>
+    <string name="hs_use_shizuku">Use Shizuku instead</string>
+    <string name="hs_root">Rooted phone?</string>
+    <string name="hs_root_desc">Skipify can start its helper with root instead: no pairing, no Wi-Fi, and nothing to redo after a restart. Your root app asks once.</string>
+    <string name="hs_root_action">Use root</string>
+    <string name="hs_root_working">Waiting for your root app…</string>
+    <string name="hs_root_failed">Root access didn\'t work (denied, or no root on this phone). Use the steps below instead.</string>
+    <string name="hs_root_done">Skipping starts with root.</string>
+    <string name="setup_skip_root">Paused: the helper isn\'t running. Tap Resume to start it with root.</string>
+    <string name="helper_notice_root">Skipify couldn\'t start its helper with root. Tap to try again. Until then, ads are muted.</string>
+
+    <string name="pair_searching_title">Pairing Skipify</string>
+    <string name="pair_searching_text">In Wireless debugging, tap Pair device with pairing code.</string>
+    <string name="pair_closed_text">The pairing code closed. Tap Pair device with pairing code again and type the new code here without leaving that screen.</string>
+    <string name="pair_found_title">Enter the pairing code</string>
+    <string name="pair_found_text">Type the six-digit code shown in Settings.</string>
+    <string name="pair_enter_code">Enter code</string>
+    <string name="pair_code_hint">Six-digit code</string>
+    <string name="pair_code_length">The code has six digits.</string>
+    <string name="pair_working_title">Pairing…</string>
+    <string name="pair_working_text">Pairing and starting Skipify\'s helper.</string>
+    <string name="pair_starting_title">Paired</string>
+    <string name="pair_starting_text">Starting Skipify\'s helper…</string>
+    <string name="pair_wrong_title">That code didn\'t work</string>
+    <string name="pair_wrong_text">Check the code in Settings and try again.</string>
+    <string name="pair_failed_title">Pairing didn\'t finish</string>
+    <string name="pair_failed_text">Keep the pairing code open in Settings and try again.</string>
+    <string name="pair_done_title">Skipping is ready</string>
+    <string name="pair_done_text">Skipify will skip ads from now on.</string>
+
+    <string name="helper_notice_title">Skipping paused</string>
+    <string name="helper_notice_resume">Wireless debugging was turned off. Tap and Skipify turns it back on. Until then, ads are muted.</string>
+    <string name="helper_notice_debugging">Turn on Wireless debugging and Skipify resumes by itself. Until then, ads are muted. Tap for the steps.</string>
+    <string name="helper_notice_wifi">Skipify needs Wi-Fi to start skipping again (no internet needed). It tries again as soon as Wi-Fi is back. Until then, ads are muted.</string>
+    <string name="helper_notice_pair">Android forgot Skipify\'s pairing. Tap to pair again (one code). Until then, ads are muted.</string>
+    <string name="helper_notice_fix">Skipify couldn\'t start its helper. Tap to fix. Until then, ads are muted.</string>
+
+    <string name="opt_auto">Restart automatically after a reboot</string>
+    <string name="opt_auto_desc">Off. After a reboot Skipify asks you to tap once.</string>
+    <string name="opt_auto_desc_on">On. Skipify turns Wireless debugging on for a moment after a reboot.</string>
+    <string name="opt_auto_desc_safe">On. This phone keeps Skipify ready with Wireless debugging off, so Skipify leaves it off.</string>
+    <string name="opt_auto_desc_needs">On. This phone stops Skipify\'s helper when Wireless debugging is off, so Skipify leaves it on.</string>
+    <string name="opt_auto_desc_old">Needs Android 13 or later.</string>
+    <string name="auto_title">Restart automatically?</string>
+    <string name="auto_text">After a reboot Android turns Wireless debugging off. With this on, Skipify turns it on briefly to reconnect its helper, then tests once whether this phone keeps the helper running with Wireless debugging off. If it does, Skipify turns it off again; if not, Skipify leaves it on. If Wi-Fi is not available yet, Skipify shows a notice and retries when Wi-Fi returns. While Skip is active, Skipify may also enable USB debugging once so the helper can survive Wi-Fi loss. It never changes Developer options.</string>
+    <string name="auto_turn_on">Turn on</string>
+    <string name="opt_diag">Copy diagnostics</string>
+    <string name="opt_diag_desc">For bug reports: phone model, Android version and Skipify\'s state only.</string>
+    <string name="diag_copied">Diagnostics copied.</string>
+</resources>

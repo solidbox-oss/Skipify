@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Semantic colour tokens for Skipify's light theme. -->
+<resources>
+    <color name="bg">#F3F8F5</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="hero_surface">#E5F5EE</color>
+    <color name="hero_stroke">#C5E8D8</color>
+    <color name="card_stroke">#DDEAE4</color>
+    <color name="divider">#E6EFEB</color>
+    <color name="text">#14231F</color>
+    <color name="text_dim">#586D65</color>
+    <color name="accent">#0A806B</color>
+    <color name="accent_text">#076854</color>
+    <color name="on_accent">#FFFFFF</color>
+    <color name="ripple">#121A2F2B</color>
+    <color name="good">#147A55</color>
+    <color name="warn">#9A5E00</color>
+    <color name="bad">#B33845</color>
+    <color name="neutral">#6B7C75</color>
+    <!-- The launcher canvas remains the same in light and dark themes. -->
+    <color name="brand">#102D29</color>
+</resources>

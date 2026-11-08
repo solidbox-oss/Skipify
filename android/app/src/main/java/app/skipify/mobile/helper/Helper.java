@@ -1,0 +1,152 @@
+package app.skipify.mobile.helper;
+
+import android.os.Binder;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.Parcel;
+import android.os.Process;
+import android.os.SystemClock;
+import java.io.File;
+import java.lang.reflect.Method;
+
+// Skipify's own privileged helper. It is not part of the app process: it is started with app_process
+// from Skipify's APK through Wireless debugging (or adb), so it runs as the shell user (uid 2000) and
+// can do what Shizuku did for Skipify. It hands Skipify a Binder through Skipify's content provider and then
+// answers only Skipify's uid, and only the fixed actions in HelperProtocol. It exits when Skipify's APK is
+// replaced (an update starts a fresh helper) and keeps itself available while Skipify restarts.
+public final class Helper {
+    private static String token, apk, authority;
+    private static int skipifyUid;
+    private static IBinder skipify;   // Skipify's binder from the handshake, to notice when Skipify dies
+
+    private Helper() {}
+
+    public static void main(String[] args) {
+        // Started through a root manager (see Root in the app): it is asked to start the helper as
+        // the shell user, but should one start it as root, the helper gives root up first.
+        if (Process.myUid() == 0) dropToShell();
+        for (String a : args) {
+            if (a.startsWith("--token=")) token = a.substring(8);
+            else if (a.startsWith("--uid=")) skipifyUid = Integer.parseInt(a.substring(6));
+            else if (a.startsWith("--apk=")) apk = a.substring(6);
+            else if (a.startsWith("--authority=")) authority = a.substring(12);
+        }
+        if (token == null || authority == null || !authority.endsWith(HelperProtocol.AUTHORITY_SUFFIX)
+                || skipifyUid <= 0 || Process.myUid() != HelperProtocol.SHELL_UID) {
+            System.err.println("skipify_helper: bad arguments or not running as shell");
+            System.exit(2);
+        }
+        exemptHiddenApis();   // so the reflective calls to Android's internal services work here
+        Looper.prepareMainLooper();
+        Actions.init(userId(), authority.substring(0, authority.length() - HelperProtocol.AUTHORITY_SUFFIX.length()));
+        if (!handOver(5)) { System.err.println("skipify_helper: Skipify did not take the binder"); System.exit(1); }
+        watchApk();
+        Looper.loop();
+    }
+
+    // Sends the binder to Skipify's provider; retries a few times (Skipify may be starting).
+    private static boolean handOver(int tries) {
+        for (int i = 0; i < tries; i++) {
+            try {
+                Bundle extras = new Bundle();
+                extras.putBinder(HelperProtocol.EXTRA_BINDER, SERVICE);
+                extras.putString(HelperProtocol.EXTRA_TOKEN, token);
+                extras.putInt(HelperProtocol.EXTRA_VERSION, HelperProtocol.VERSION);
+                Bundle reply = Providers.call(authority, userId(), HelperProtocol.METHOD_HELLO, extras);
+                IBinder b = reply == null ? null : reply.getBinder(HelperProtocol.EXTRA_BINDER);
+                if (b != null && b.pingBinder()) {
+                    skipify = b;
+                    // Skipify died (killed, updated, crashed): hand the binder over again when it is back.
+                    skipify.linkToDeath(() -> new Thread(() -> {
+                        // Skipify was updated: its new version starts its own helper.
+                        if (apk != null && !new File(apk).exists()) System.exit(0);
+                        SystemClock.sleep(1000);
+                        if (apk != null && !new File(apk).exists()) System.exit(0);
+                        if (!handOver(30)) System.exit(0);
+                    }, "skipify-helper-rebind").start(), 0);
+                    return true;
+                }
+            } catch (Throwable t) {
+                System.err.println("skipify_helper: hand-over failed: " + t);
+            }
+            SystemClock.sleep(1000);
+        }
+        return false;
+    }
+
+    // An updated Skipify lives at a new path; the old helper steps aside so the new one can start.
+    // An inotify watch (no wake-ups); a slow check stays as a safety net.
+    private static android.os.FileObserver apkObserver;
+
+    private static void watchApk() {
+        if (apk == null) return;
+        apkObserver = new android.os.FileObserver(new File(apk),
+                android.os.FileObserver.DELETE_SELF | android.os.FileObserver.MOVE_SELF) {
+            @Override public void onEvent(int event, String path) { System.exit(0); }
+        };
+        apkObserver.startWatching();
+        Thread t = new Thread(() -> {
+            while (true) {
+                SystemClock.sleep(60_000);
+                if (!new File(apk).exists()) System.exit(0);
+            }
+        }, "skipify-helper-apk");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private static final Binder SERVICE = new Binder() {
+        @Override protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws android.os.RemoteException {
+            if (code == INTERFACE_TRANSACTION) return super.onTransact(code, data, reply, flags);
+            if (Binder.getCallingUid() != skipifyUid) return false;   // only Skipify, nobody else
+            try {
+                data.enforceInterface(HelperProtocol.DESCRIPTOR);
+                Actions.handle(code, data, reply);
+                return true;
+            } catch (SecurityException | IllegalArgumentException e) {
+                reply.writeInt(HelperProtocol.ERROR);
+                reply.writeString(e.getMessage());
+                return true;
+            }
+        }
+    };
+
+    static int sdk() { return Build.VERSION.SDK_INT; }
+
+    // Root to the shell user (group first: without root it could not be changed any more). On
+    // failure the helper stops at the uid check below rather than run as root.
+    private static void dropToShell() {
+        try {
+            android.system.Os.setgid(HelperProtocol.SHELL_UID);   // as root: real, effective and saved
+            android.system.Os.setuid(HelperProtocol.SHELL_UID);
+        } catch (Throwable t) {
+            System.err.println("skipify_helper: could not leave root: " + t);
+        }
+    }
+
+    // Android user that Skipify runs in (uid = user * 100000 + app id).
+    static int userId() { return skipifyUid / 100000; }
+
+    // Lifts the hidden-API restriction for this process so reflection can reach the internal
+    // activity-manager and provider methods. Harmless if the platform already allows it.
+    private static void exemptHiddenApis() {
+        if (Build.VERSION.SDK_INT < 28) return;
+        try {
+            Class<?> vmRuntime = Class.forName("dalvik.system.VMRuntime");
+            Object runtime = vmRuntime.getDeclaredMethod("getRuntime").invoke(null);
+            vmRuntime.getDeclaredMethod("setHiddenApiExemptions", String[].class)
+                    .invoke(runtime, (Object) new String[]{"L"});
+        } catch (Throwable t) {
+            System.err.println("skipify_helper: hidden-api exemption not applied: " + t);
+        }
+    }
+
+    // Reflection helper: the first public method with this name and parameter count.
+    static Method method(Class<?> c, String name, int params) throws NoSuchMethodException {
+        for (Method m : c.getMethods())
+            if (m.getName().equals(name) && m.getParameterTypes().length == params) return m;
+        throw new NoSuchMethodException(c.getName() + "." + name + "/" + params);
+    }
+}

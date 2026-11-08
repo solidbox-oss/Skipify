@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0B1414</color>
+    <color name="surface">#122020</color>
+    <color name="hero_surface">#15332E</color>
+    <color name="hero_stroke">#2A5B50</color>
+    <color name="card_stroke">#263B38</color>
+    <color name="divider">#253936</color>
+    <color name="text">#ECF7F2</color>
+    <color name="text_dim">#A6BDB5</color>
+    <color name="accent">#48D8B3</color>
+    <color name="accent_text">#75E8C8</color>
+    <color name="on_accent">#06251F</color>
+    <color name="ripple">#1FFFFFFF</color>
+    <color name="good">#5CDA9E</color>
+    <color name="warn">#F0BD61</color>
+    <color name="bad">#F28388</color>
+    <color name="neutral">#82968F</color>
+</resources>

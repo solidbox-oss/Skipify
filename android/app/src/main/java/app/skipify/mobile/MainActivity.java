@@ -1,0 +1,653 @@
+package app.skipify.mobile;
+
+import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.net.VpnService;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.text.format.DateUtils;
+import android.view.HapticFeedbackConstants;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.NumberPicker;
+import android.widget.RadioButton;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.Toast;
+import java.text.DateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import app.skipify.mobile.helper.SkipifyHelper;
+import rikka.shizuku.Shizuku;
+
+// Main screen: master switch with status, setup steps, statistics, ad handling, settings, activity.
+public class MainActivity extends Activity {
+    private static final int REQ_VPN_ENABLE = 1, REQ_VPN_DNS = 2, REQ_NOTIF = 3;
+
+    private Prefs prefs;
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private View optSleep, optCar, statusDetails, setupSection, choiceSkip, choiceMute, choiceOff, optDns, optAuto;
+    private ImageButton power;
+    private TextView statusTitle, statusDesc;
+    private TextView statSkipped, statResume, statMuted, statDns;
+    private LinearLayout setupList, events;
+    private boolean shizukuSeen;
+
+    private final Runnable refreshEvents = () -> ui.post(this::refresh);
+    private final Runnable ticker = new Runnable() {
+        @Override public void run() { refresh(); ui.postDelayed(this, 2000); }
+    };
+    private final Shizuku.OnBinderReceivedListener binderUp = () -> ui.post(this::refresh);
+    private final Shizuku.OnBinderDeadListener binderDown = () -> ui.post(this::refresh);
+    private final Shizuku.OnRequestPermissionResultListener shizukuResult = (code, result) -> ui.post(this::refresh);
+    private final SkipifyHelper.Listener helperChanged = connected -> ui.post(this::refresh);
+
+    @Override protected void onCreate(Bundle b) {
+        super.onCreate(b);
+        setContentView(R.layout.activity_main);
+        Insets.apply(this, findViewById(R.id.root));
+        prefs = new Prefs(this);
+
+        power = findViewById(R.id.power);
+        statusTitle = findViewById(R.id.status_title);
+        statusDesc = findViewById(R.id.status_desc);
+        statusDetails = findViewById(R.id.status_details);
+        setupSection = findViewById(R.id.setup_section);
+        setupList = findViewById(R.id.setup_list);
+        statSkipped = findViewById(R.id.stat_skipped);
+        statResume = findViewById(R.id.stat_resume);
+        statMuted = findViewById(R.id.stat_muted);
+        statDns = findViewById(R.id.stat_dns);
+        events = findViewById(R.id.events);
+
+        label(R.id.st_detect, R.string.st_detect);
+        label(R.id.st_skip, R.string.st_skip);
+        label(R.id.st_dns, R.string.st_dns);
+        choiceSkip = row(R.id.choice_skip, R.string.mode_skip, R.string.mode_skip_desc);
+        choiceMute = row(R.id.choice_mute, R.string.mode_mute, R.string.mode_mute_desc);
+        choiceOff = row(R.id.choice_off, R.string.mode_off, R.string.mode_off_desc);
+        optDns = row(R.id.opt_dns, R.string.opt_dns, R.string.opt_dns_desc);
+        optSleep = row(R.id.opt_sleep, R.string.opt_sleep, R.string.sleep_desc_off);
+        optCar = row(R.id.opt_car, R.string.opt_car, R.string.car_skip);
+        View optRules = row(R.id.opt_rules, R.string.opt_rules, R.string.opt_rules_desc);
+        View optTest = row(R.id.opt_test, R.string.opt_test, R.string.opt_test_desc);
+        optTest.findViewById(R.id.chevron).setVisibility(View.GONE);
+
+        try {
+            String v = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            ((TextView) findViewById(R.id.version)).setText(getString(R.string.version, v));
+        } catch (PackageManager.NameNotFoundException ignored) {}
+
+        power.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+            if (prefs.enabled()) Skipify.setEnabled(this, false);
+            else turnOn();
+            refresh();
+        });
+
+        choiceSkip.setOnClickListener(v -> setMode(Prefs.MODE_RESTART));
+        choiceMute.setOnClickListener(v -> setMode(Prefs.MODE_MUTE));
+        choiceOff.setOnClickListener(v -> setMode(Prefs.MODE_OFF));
+
+        optDns.setOnClickListener(v -> {
+            boolean on = !prefs.dns();
+            prefs.dns(on);
+            Intent consent = on && prefs.enabled() ? VpnService.prepare(this) : null;
+            if (consent != null) startActivityForResult(consent, REQ_VPN_DNS);
+            else Skipify.applyDns(this);
+            refresh();
+            ui.postDelayed(this::refresh, 400);
+        });
+        optSleep.setOnClickListener(v -> chooseSleep());
+        optCar.setOnClickListener(v -> chooseCar());
+        optRules.setOnClickListener(v -> startActivity(new Intent(this, RulesActivity.class)));
+        if (BuildConfig.DEBUG) optTest.setOnLongClickListener(v -> {
+            Skipper.debugForcePlaylistFix = true;
+            toast(Skipper.start(this, true) ? R.string.test_started : R.string.test_busy);
+            return true;
+        });
+        optTest.setOnClickListener(v -> {
+            if (!Shell.ready()) { toast(R.string.test_needs_shizuku); openSkipSetup(); return; }
+            toast(Skipper.start(this, true) ? R.string.test_started : R.string.test_busy);
+        });
+        optAuto = row(R.id.opt_auto, R.string.opt_auto, R.string.opt_auto_desc);
+        optAuto.setOnClickListener(v -> toggleAutoRestart());
+        View optDiag = row(R.id.opt_diag, R.string.opt_diag, R.string.opt_diag_desc);
+        optDiag.findViewById(R.id.chevron).setVisibility(View.GONE);
+        optDiag.setOnClickListener(v -> copyDiagnostics());
+        findViewById(R.id.stats_reset).setOnClickListener(v -> { prefs.resetStats(); Skipify.refreshNotification(this); refresh(); });
+        findViewById(R.id.events_clear).setOnClickListener(v -> Events.clear(this));
+
+        try {
+            Shizuku.addBinderReceivedListenerSticky(binderUp);
+            Shizuku.addBinderDeadListener(binderDown);
+            Shizuku.addRequestPermissionResultListener(shizukuResult);
+        } catch (Throwable ignored) {}
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        Events.listen(refreshEvents);
+        SkipifyHelper.addListener(helperChanged);
+        ui.post(ticker);
+        // Settings/OEM battery controls can leave the listener disconnected while this process
+        // stays alive, so check again whenever the user brings Skipify back to the foreground.
+        if (prefs.enabled()) AdWatcher.retryNow(this);
+        if (prefs.enabled()) Skipify.applyDns(this);   // e.g. VPN was taken over by another app meanwhile
+        // Spotify's background setting may have been changed in Settings meanwhile: allow it again
+        // (off the main thread).
+        if (Shell.ready()) new Thread(() -> { SpotifyBackground.ensureAllowed(this); ui.post(this::refresh); }, "skipify-spotify-bg").start();
+    }
+
+    @Override protected void onPause() {
+        super.onPause();
+        Events.unlisten(refreshEvents);
+        SkipifyHelper.removeListener(helperChanged);
+        ui.removeCallbacks(ticker);
+    }
+
+    @Override protected void onDestroy() {
+        super.onDestroy();
+        try {
+            Shizuku.removeBinderReceivedListener(binderUp);
+            Shizuku.removeBinderDeadListener(binderDown);
+            Shizuku.removeRequestPermissionResultListener(shizukuResult);
+        } catch (Throwable ignored) {}
+    }
+
+    // What happens to ads while Android Auto is connected (used instead of Skip; Mute and Do nothing
+    // above apply in the car too).
+    private static final String[] CAR_MODES = {Prefs.MODE_RESTART, Prefs.MODE_MUTE, Prefs.MODE_OFF};
+    private static final int[] CAR_LABELS = {R.string.car_skip, R.string.car_mute, R.string.car_off};
+
+    private void chooseCar() {
+        CharSequence[] items = new CharSequence[CAR_MODES.length];
+        int checked = 0;
+        for (int i = 0; i < CAR_MODES.length; i++) {
+            items[i] = getString(CAR_LABELS[i]);
+            if (CAR_MODES[i].equals(prefs.carMode())) checked = i;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.opt_car)
+                .setSingleChoiceItems(items, checked, (d, which) -> {
+                    prefs.carMode(CAR_MODES[which]);
+                    AdWatcher.recheck();
+                    refresh();
+                    d.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private int carDesc() {
+        String m = prefs.carMode();
+        return Prefs.MODE_MUTE.equals(m) ? R.string.car_desc_mute : Prefs.MODE_OFF.equals(m) ? R.string.car_desc_off : R.string.car_desc_skip;
+    }
+
+    // Same choices as Spotify's own sleep timer, a custom time, and "Turn off" while one is running.
+    private void chooseSleep() {
+        int n = SleepTimer.CHOICES.length;
+        boolean on = SleepTimer.active(this);
+        CharSequence[] items = new CharSequence[on ? n + 2 : n + 1];
+        for (int i = 0; i < n; i++) {
+            int m = SleepTimer.CHOICES[i];
+            items[i] = m == SleepTimer.END_OF_TRACK ? getString(R.string.sleep_eot)
+                    : m == 60 ? getString(R.string.sleep_hour) : getString(R.string.sleep_minutes, m);
+        }
+        items[n] = getString(R.string.sleep_custom);
+        if (on) items[n + 1] = getString(R.string.sleep_off);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.opt_sleep)
+                .setItems(items, (d, which) -> {
+                    if (which == n) { chooseCustomSleep(); return; }
+                    if (which == n + 1) SleepTimer.cancel(this);
+                    else SleepTimer.set(this, SleepTimer.CHOICES[which]);
+                    refresh();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    // Any time from 1 second to 23 h 59 min 59 s, picked as hours, minutes and seconds.
+    private void chooseCustomSleep() {
+        NumberPicker hours = picker(SleepTimer.MAX_SECONDS / 3600, 1), minutes = picker(59, 0), seconds = picker(59, 0);
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(android.view.Gravity.CENTER);
+        int pad = Math.round(16 * getResources().getDisplayMetrics().density);
+        row.setPadding(pad, pad, pad, 0);
+        row.addView(hours);
+        row.addView(unit(R.string.sleep_custom_hours, pad));
+        row.addView(minutes);
+        row.addView(unit(R.string.sleep_custom_minutes, pad));
+        row.addView(seconds);
+        row.addView(unit(R.string.sleep_custom_seconds, pad));
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.sleep_custom_title)
+                .setView(row)
+                .setPositiveButton(R.string.sleep_custom_start, (d, w) -> {
+                    // A number typed into a picker is taken only when it loses focus; without this,
+                    // typing "30" and pressing Start right away would use the old value.
+                    hours.clearFocus(); minutes.clearFocus(); seconds.clearFocus();
+                    int total = hours.getValue() * 3600 + minutes.getValue() * 60 + seconds.getValue();
+                    if (total < 1) { Toast.makeText(this, R.string.sleep_custom_zero, Toast.LENGTH_SHORT).show(); return; }
+                    SleepTimer.setSeconds(this, total);
+                    refresh();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private NumberPicker picker(int max, int value) {
+        NumberPicker p = new NumberPicker(this);
+        p.setMinValue(0);
+        p.setMaxValue(max);
+        p.setValue(value);
+        return p;
+    }
+
+    private TextView unit(int text, int pad) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setPadding(pad / 4, 0, pad / 2, 0);
+        return t;
+    }
+
+    private void setMode(String m) {
+        prefs.mode(m);
+        // The helper is kept running only for Skip; switching to it starts the helper now, so the
+        // next ad is skipped rather than muted while it starts.
+        if (prefs.enabled() && Prefs.MODE_RESTART.equals(m) && (prefs.paired() || prefs.root()) && HelperControl.supported() && !Shell.ready())
+            HelperControl.ensure(this, true, true);
+        else if (Prefs.MODE_RESTART.equals(m)) HelperControl.keepRunningOffWifiAsync(this);
+        AdWatcher.recheck();
+        refresh();
+    }
+
+    private void turnOn() {
+        if (prefs.dns()) {
+            Intent consent = VpnService.prepare(this);
+            if (consent != null) { startActivityForResult(consent, REQ_VPN_ENABLE); return; }
+        }
+        Skipify.setEnabled(this, true);
+        askNotificationPermission();
+        afterTurnOn();
+    }
+
+    // Skipping needs a backend: Skipify's own helper (started at once if Skipify is paired), or Shizuku if
+    // it runs and only needs Skipify's permission; otherwise the one-time setup.
+    private void afterTurnOn() {
+        if (!Prefs.MODE_RESTART.equals(prefs.mode()) || Shell.ready()) return;
+        if (Shell.running() && !prefs.paired()) Shell.requestPermission();
+        else if ((prefs.paired() || prefs.root()) && HelperControl.supported()) HelperControl.ensure(this, true, true);
+        else openSkipSetup();
+    }
+
+    private void openSkipSetup() {
+        startActivity(new Intent(this, HelperControl.supported() ? HelperSetupActivity.class : ShizukuSetupActivity.class));
+    }
+
+    // Opt-in automatic restart after a reboot, explained once before it is turned on.
+    private void toggleAutoRestart() {
+        if (!HelperControl.canToggleDebugging(this)) return;
+        if (prefs.autoRestart()) { HelperControl.autoRestartChanged(this, false); refresh(); return; }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.auto_title)
+                .setMessage(R.string.auto_text)
+                .setPositiveButton(R.string.auto_turn_on, (d, w) -> { HelperControl.autoRestartChanged(this, true); refresh(); })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    // Anonymous: maker, model family, Android version, Skipify version and state. Nothing personal.
+    private void copyDiagnostics() {
+        String v = "";
+        try { v = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (PackageManager.NameNotFoundException ignored) {}
+        String spotify = "not installed";
+        try { spotify = getPackageManager().getPackageInfo(Skipify.SPOTIFY, 0).versionName; } catch (PackageManager.NameNotFoundException ignored) {}
+        StringBuilder fails = new StringBuilder();
+        java.text.SimpleDateFormat time = new java.text.SimpleDateFormat("MM-dd HH:mm", Locale.US);
+        int n = 0;
+        for (Events.Event e : Events.recent(this)) {   // newest first; problems only, without app names
+            if (!Events.FAIL.equals(e.kind) || n++ == 5) continue;
+            fails.append("\n  ").append(time.format(new java.util.Date(e.time))).append(' ')
+                    .append(e.msg.replaceAll("\\(in (?!Spotify\\))[^)]*\\)", "(in another app)"));
+        }
+        String report = "Skipify " + v + "\nphone: " + Build.MANUFACTURER + " " + Build.MODEL + ", Android " + Build.VERSION.RELEASE
+                + " (API " + Build.VERSION.SDK_INT + ")\nSpotify: " + spotify + "\nmode: " + prefs.mode() + ", on: " + prefs.enabled()
+                + "\nad notification access: " + Skipify.listenerEnabled(this) + ", ad watcher connected: " + AdWatcher.connected()
+                + "\nad watcher recovery: " + AdWatcher.reconnectDiagnostics(this)
+                + "\nnetwork: " + (HelperControl.onWifi(this) ? "Wi-Fi" : "no Wi-Fi") + ", Android Auto: " + (Car.connected(this) ? "yes" : "no")
+                + "\n" + HelperControl.diagnostics(this)
+                + "\nrecent problems:" + (fails.length() == 0 ? " none" : fails);
+        android.content.ClipboardManager cm = getSystemService(android.content.ClipboardManager.class);
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("Skipify diagnostics", report));
+        if (Build.VERSION.SDK_INT < 33) toast(R.string.diag_copied);   // Android 13+ shows its own confirmation
+    }
+
+    @Override protected void onActivityResult(int req, int res, Intent data) {
+        if (req == REQ_VPN_ENABLE) {
+            if (res != RESULT_OK) { prefs.dns(false); toast(R.string.vpn_denied); }
+            Skipify.setEnabled(this, true);
+            askNotificationPermission();
+            afterTurnOn();
+        } else if (req == REQ_VPN_DNS) {
+            if (res == RESULT_OK) Skipify.applyDns(this);
+            else { prefs.dns(false); toast(R.string.vpn_denied); }
+        }
+        refresh();
+    }
+
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF);
+    }
+
+    @Override public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        Skipify.refreshNotification(this);
+        refresh();
+    }
+
+    @Override public void onWindowFocusChanged(boolean focus) {
+        super.onWindowFocusChanged(focus);
+        if (focus) refresh();
+    }
+
+    // ---- rendering ----
+
+    private void refresh() {
+        boolean on = prefs.enabled();
+        if (on) AdWatcher.requestRebindIfNeeded(this);
+        boolean listener = Skipify.listenerEnabled(this);
+        boolean watcher = AdWatcher.connected();
+        boolean shizuku = Shell.ready();
+        if (shizuku && !shizukuSeen) BackgroundAudio.apply(this);
+        shizukuSeen = shizuku;
+        if (shizuku) Skipify.clearSkipAlert(this);
+        boolean dnsRunning = DnsVpnService.running;
+        String m = prefs.mode();
+        boolean skipMode = Prefs.MODE_RESTART.equals(m), muteMode = Prefs.MODE_MUTE.equals(m), offMode = Prefs.MODE_OFF.equals(m);
+
+        // Status card
+        power.setBackgroundResource(on ? R.drawable.bg_power_on : R.drawable.bg_power_off);
+        power.setImageTintList(ColorStateList.valueOf(getColor(on ? R.color.on_accent : R.color.text_dim)));
+        power.setContentDescription(getString(on ? R.string.power_turn_off : R.string.power_turn_on));
+        int title, desc;
+        if (!on) { title = R.string.status_off; desc = R.string.status_off_desc; }
+        else if (!listener && !offMode) { title = R.string.status_attention; desc = R.string.status_need_listener; }
+        else if (!watcher && !offMode) { title = R.string.status_attention; desc = R.string.status_listener_reconnecting; }
+        else if (skipMode && !shizuku) { title = R.string.status_attention; desc = R.string.status_need_shizuku; }
+        else if (prefs.dns() && !dnsRunning) { title = R.string.status_attention; desc = R.string.status_need_dns; }
+        else if (offMode) { title = R.string.status_dns_only; desc = R.string.status_dns_only_desc; }
+        else if (muteMode) { title = R.string.status_mute; desc = R.string.status_mute_desc; }
+        else { title = R.string.status_skip; desc = R.string.status_skip_desc; }
+        statusTitle.setText(title);
+        statusDesc.setText(desc);
+        if (Build.VERSION.SDK_INT >= 30) power.setStateDescription(getString(on ? R.string.state_on : R.string.state_off));
+
+        statusDetails.setVisibility(on ? View.VISIBLE : View.GONE);
+        if (on) {
+            value(R.id.st_detect, offMode ? R.string.v_off : !listener ? R.string.v_no_access
+                            : watcher ? R.string.v_active : R.string.v_reconnecting,
+                    offMode ? R.color.neutral : listener && watcher ? R.color.good : R.color.warn);
+            value(R.id.st_skip, offMode ? R.string.v_off : muteMode ? R.string.v_mute : !shizuku ? R.string.v_mute_fallback
+                            : SkipifyHelper.ready() ? R.string.v_skip : R.string.v_skip_shizuku,
+                    offMode ? R.color.neutral : skipMode && !shizuku ? R.color.warn : R.color.good);
+            value(R.id.st_dns, !prefs.dns() ? R.string.v_off : dnsRunning ? R.string.v_running : R.string.v_stopped,
+                    !prefs.dns() ? R.color.neutral : dnsRunning ? R.color.good : R.color.warn);
+        }
+
+        // Ad handling and settings
+        choose(choiceSkip, skipMode);
+        choose(choiceMute, muteMode);
+        choose(choiceOff, offMode);
+        ((Switch) optDns.findViewById(R.id.toggle)).setChecked(prefs.dns());
+        if (Build.VERSION.SDK_INT >= 30) optDns.setStateDescription(getString(prefs.dns() ? R.string.state_on : R.string.state_off));
+
+        ((TextView) optSleep.findViewById(R.id.summary)).setText(SleepTimer.describe(this));
+        ((TextView) optCar.findViewById(R.id.summary)).setText(carDesc());
+        renderAutoRestart();
+
+        // Statistics
+        long skipped = prefs.get(Prefs.SKIPPED);
+        stat(R.id.cell_skipped, statSkipped, String.valueOf(skipped), R.string.stat_skipped);
+        stat(R.id.cell_resume, statResume, skipped == 0 ? getString(R.string.stat_none)
+                : String.format(Locale.getDefault(), "%.1f s", prefs.get(Prefs.RESUME_MS) / 1000.0 / skipped), R.string.stat_resume);
+        stat(R.id.cell_muted, statMuted, String.valueOf(prefs.get(Prefs.MUTED)), R.string.stat_muted);
+        stat(R.id.cell_dns, statDns, String.valueOf(prefs.get(Prefs.DNS_HITS)), R.string.stat_dns);
+
+        renderSetup(listener, shizuku);
+        renderEvents();
+    }
+
+    private void label(int rowId, int text) {
+        ((TextView) findViewById(rowId).findViewById(R.id.label)).setText(text);
+    }
+
+    private void value(int rowId, int text, int color) {
+        TextView v = findViewById(rowId).findViewById(R.id.value);
+        v.setText(text);
+        Drawable d = getDrawable(R.drawable.dot).mutate();
+        d.setTint(getColor(color));
+        d.setBounds(0, 0, dp(8), dp(8));
+        v.setCompoundDrawablesRelative(d, null, null, null);
+    }
+
+    private View row(int id, int title, int summary) {
+        View r = findViewById(id);
+        ((TextView) r.findViewById(R.id.title)).setText(title);
+        ((TextView) r.findViewById(R.id.summary)).setText(summary);
+        return r;
+    }
+
+    private void choose(View row, boolean selected) {
+        ((RadioButton) row.findViewById(R.id.radio)).setChecked(selected);
+        row.setSelected(selected);
+        if (Build.VERSION.SDK_INT >= 30) row.setStateDescription(selected ? getString(R.string.state_on) : null);
+    }
+
+    private void stat(int cell, TextView value, String text, int label) {
+        value.setText(text);
+        findViewById(cell).setContentDescription(getString(label) + ": " + text);
+    }
+
+    private void renderSetup(boolean listener, boolean shizuku) {
+        setupList.removeAllViews();
+        if (getPackageManager().getLaunchIntentForPackage(Skipify.SPOTIFY) == null)
+            setupRow(R.string.setup_spotify, R.string.setup_spotify_missing, R.string.action_install,
+                    v -> open(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + Skipify.SPOTIFY))));
+        if (!listener)
+            setupRow(R.string.setup_listener, R.string.setup_listener_desc, R.string.action_allow,
+                    v -> openNotificationListenerSettings());
+        else if (prefs.enabled() && !AdWatcher.connected() && !Prefs.MODE_OFF.equals(prefs.mode()))
+            setupRow(R.string.setup_listener_reconnect, R.string.setup_listener_reconnect_desc, R.string.action_fix,
+                    v -> openNotificationListenerSettings());
+        // Android 13+ greys out notification access for apps installed from a browser or file
+        // manager ("Restricted setting") until the user allows it in App info. Apps cannot read that
+        // state, so the way out is shown once Allow did not lead to access.
+        if (!listener && Build.VERSION.SDK_INT >= 33 && prefs.listenerAsked())
+            setupRow(R.string.setup_restricted, R.string.setup_restricted_desc, R.string.action_app_info,
+                    v -> open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)));
+        if (prefs.dns() && VpnService.prepare(this) != null)
+            setupRow(R.string.setup_vpn, R.string.setup_vpn_desc, R.string.action_allow, v -> {
+                Intent consent = VpnService.prepare(this);
+                if (consent != null) startActivityForResult(consent, REQ_VPN_DNS);
+            });
+        if (Prefs.MODE_RESTART.equals(prefs.mode()) && !shizuku) renderSkipSetup();
+        // If Shizuku is in use, offer the switch to Skipify's own helper, which needs no manual
+        // Shizuku restart after each reboot. Hide this option once Skipify is paired.
+        else if (Prefs.MODE_RESTART.equals(prefs.mode()) && HelperControl.supported() && !prefs.paired() && !prefs.root())
+            setupRow(R.string.setup_no_shizuku, R.string.setup_no_shizuku_desc, R.string.action_set_up, v -> openSkipSetup());
+        // Spotify may not run in the background (Battery > Restricted, or a maker's battery saver):
+        // after a skip it would play without its notification and stop a few minutes later.
+        if (Prefs.MODE_RESTART.equals(prefs.mode()) && shizuku && SpotifyBackground.restricted())
+            setupRow(R.string.setup_spotify_bg, R.string.setup_spotify_bg_desc, R.string.action_fix, v -> {
+                v.setEnabled(false);
+                new Thread(() -> {
+                    boolean ok = SpotifyBackground.allow(this);
+                    ui.post(() -> {
+                        if (!ok) open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + Skipify.SPOTIFY)));
+                        refresh();
+                    });
+                }, "skipify-spotify-bg").start();
+            });
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            setupRow(R.string.setup_notifications, R.string.setup_notifications_desc, R.string.action_allow,
+                    v -> requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF));
+        if (!getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName()))
+            setupRow(R.string.setup_battery, R.string.setup_battery_desc, R.string.action_allow,
+                    v -> open(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName()))));
+        setupSection.setVisibility(setupList.getChildCount() > 0 ? View.VISIBLE : View.GONE);
+    }
+
+    // Skipping is not ready. A Shizuku user who has not paired Skipify keeps the Shizuku steps; a paired
+    // Skipify resumes with one tap (or by itself once Wireless debugging is on); everyone else gets the
+    // one-time setup. Android 8-10 have no Wireless debugging: Shizuku only.
+    private void renderSkipSetup() {
+        if (prefs.root() && HelperControl.supported()) {   // started with root: no Wi-Fi or debugging involved
+            setupRow(R.string.setup_skip, R.string.setup_skip_root, R.string.action_resume, v -> {
+                v.setEnabled(false);
+                HelperControl.ensure(this, false, true);
+            });
+            return;
+        }
+        boolean shizukuUser = Shell.installed(this) && !prefs.paired();
+        if (!HelperControl.supported() || shizukuUser && Shell.running()) {
+            int desc = !Shell.installed(this) ? R.string.setup_shizuku_missing
+                    : !Shell.running() ? R.string.setup_shizuku_stopped : R.string.setup_shizuku_permission;
+            int action = !Shell.installed(this) ? R.string.action_set_up : !Shell.running() ? R.string.action_open : R.string.action_allow;
+            setupRow(R.string.setup_shizuku, desc, action, v -> {
+                if (Shell.running() && !Shell.shizukuReady()) Shell.requestPermission();
+                else startActivity(new Intent(this, ShizukuSetupActivity.class));
+            });
+        } else if (prefs.paired() && !HelperControl.onWifi(this)) {
+            // Off Wi-Fi the helper cannot start (Wireless debugging needs Wi-Fi): Resume could not
+            // work, and Skipify resumes by itself when Wi-Fi is back.
+            setupRow(R.string.setup_skip, R.string.setup_skip_wifi, R.string.action_wifi,
+                    v -> open(new Intent(Build.VERSION.SDK_INT >= 29 ? Settings.Panel.ACTION_WIFI : Settings.ACTION_WIFI_SETTINGS)));
+        } else if (prefs.paired()) {
+            boolean tap = HelperControl.canToggleDebugging(this) || HelperControl.debuggingOn(this);
+            setupRow(R.string.setup_skip, tap ? R.string.setup_skip_resume : R.string.setup_skip_off,
+                    tap ? R.string.action_resume : R.string.action_open, v -> {
+                        if (tap) { v.setEnabled(false); HelperControl.ensure(this, true, true); }
+                        else openSkipSetup();
+                    });
+        } else {
+            boolean again = HelperControl.lastResult() == HelperControl.Result.NOT_PAIRED;
+            setupRow(R.string.setup_skip, again ? R.string.setup_skip_pair : R.string.setup_skip_new, R.string.action_set_up,
+                    v -> openSkipSetup());
+        }
+    }
+
+    // "Restart automatically after a reboot": shown once Skipify is paired; describes the per-phone result.
+    private void renderAutoRestart() {
+        boolean show = HelperControl.supported() && prefs.paired() && !prefs.root();   // root needs no debugging
+        int vis = show ? View.VISIBLE : View.GONE;
+        optAuto.setVisibility(vis);
+        findViewById(R.id.opt_auto_divider).setVisibility(vis);
+        if (!show) return;
+        boolean can = HelperControl.canToggleDebugging(this), on = prefs.autoRestart() && can;
+        String test = prefs.phoneTest();
+        int desc = !can ? R.string.opt_auto_desc_old : !on ? R.string.opt_auto_desc
+                : Prefs.TEST_SAFE.equals(test) ? R.string.opt_auto_desc_safe
+                : Prefs.TEST_NEEDS_ON.equals(test) ? R.string.opt_auto_desc_needs : R.string.opt_auto_desc_on;
+        ((TextView) optAuto.findViewById(R.id.summary)).setText(desc);
+        Switch s = optAuto.findViewById(R.id.toggle);
+        s.setChecked(on);
+        s.setEnabled(can);
+        optAuto.setEnabled(can);
+        optAuto.setAlpha(can ? 1f : 0.5f);
+        if (Build.VERSION.SDK_INT >= 30) optAuto.setStateDescription(getString(on ? R.string.state_on : R.string.state_off));
+    }
+
+    private void setupRow(int title, int desc, int action, View.OnClickListener click) {
+        if (setupList.getChildCount() > 0) setupList.addView(divider());
+        View row = LayoutInflater.from(this).inflate(R.layout.row_setup, setupList, false);
+        ((TextView) row.findViewById(R.id.title)).setText(title);
+        ((TextView) row.findViewById(R.id.desc)).setText(desc);
+        Button b = row.findViewById(R.id.action);
+        b.setText(action);
+        b.setContentDescription(getString(action) + ": " + getString(title));
+        b.setOnClickListener(click);
+        setupList.addView(row);
+    }
+
+    private View divider() {
+        View d = new View(this);
+        d.setBackgroundColor(getColor(R.color.divider));
+        d.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        lp.setMarginStart(dp(20));
+        lp.setMarginEnd(dp(20));
+        d.setLayoutParams(lp);
+        return d;
+    }
+
+    private void renderEvents() {
+        List<Events.Event> list = Events.recent(this);
+        events.removeAllViews();
+        int n = Math.min(list.size(), 12);
+        DateFormat timeFmt = android.text.format.DateFormat.getTimeFormat(this);
+        DateFormat dayFmt = DateFormat.getDateInstance(DateFormat.SHORT);
+        for (int i = 0; i < n; i++) {
+            Events.Event e = list.get(i);
+            View row = LayoutInflater.from(this).inflate(R.layout.row_event, events, false);
+            ((ImageView) row.findViewById(R.id.dot)).setImageTintList(ColorStateList.valueOf(getColor(kindColor(e.kind))));
+            ((TextView) row.findViewById(R.id.msg)).setText(e.msg);
+            Date d = new Date(e.time);
+            ((TextView) row.findViewById(R.id.time)).setText(DateUtils.isToday(e.time) ? timeFmt.format(d) : dayFmt.format(d));
+            events.addView(row);
+        }
+        if (n == 0) {
+            TextView empty = new TextView(this, null, 0, R.style.Text_Secondary);
+            empty.setText(R.string.activity_empty);
+            empty.setPadding(dp(20), dp(12), dp(20), dp(12));
+            events.addView(empty);
+        }
+    }
+
+    private static int kindColor(String kind) {
+        switch (kind) {
+            case Events.SKIP: return R.color.good;
+            case Events.MUTE: return R.color.accent;
+            case Events.FAIL: return R.color.bad;
+            case Events.AD: return R.color.warn;
+            default: return R.color.neutral;
+        }
+    }
+
+    private void openNotificationListenerSettings() {
+        prefs.listenerAsked(true);
+        Intent i = Build.VERSION.SDK_INT >= 30
+                ? new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
+                        Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                        new ComponentName(this, AdWatcher.class).flattenToString())
+                : new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+        if (!open(i)) open(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+    }
+
+    private boolean open(Intent i) {
+        if (i == null) return false;
+        try { startActivity(i); return true; } catch (Exception e) { return false; }
+    }
+
+    private void toast(int res) { Toast.makeText(this, res, Toast.LENGTH_SHORT).show(); }
+
+    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+}
